@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { looksLikeShoppingTrip } from "./shopping";
 
 const STORAGE_KEY = "minerva-life:v1";
 const GMAIL_TOKEN_KEY = "minerva-life:gmail-refresh-token";
@@ -40,6 +41,7 @@ const DEFAULT_STATE = {
   tasks: [],
   transactions: [],
   importedGmailIds: [],
+  shoppingHistory: [], // [{ name, count, lastUsed }]
 };
 
 // The Gmail refresh token is kept in its own storage key (separate from
@@ -78,6 +80,7 @@ function loadState() {
       tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
       transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
       importedGmailIds: Array.isArray(parsed.importedGmailIds) ? parsed.importedGmailIds : [],
+      shoppingHistory: Array.isArray(parsed.shoppingHistory) ? parsed.shoppingHistory : [],
     };
   } catch (err) {
     console.error("Failed to load Minerva Life data", err);
@@ -105,6 +108,7 @@ export function useAppData() {
   }, [state]);
 
   const addTask = useCallback((task) => {
+    const isShopping = looksLikeShoppingTrip(task.title);
     setState((prev) => ({
       ...prev,
       tasks: [
@@ -116,6 +120,8 @@ export function useAppData() {
           time: task.time || "",
           done: false,
           createdAt: Date.now(),
+          isShopping,
+          items: isShopping ? [] : undefined,
         },
       ],
     }));
@@ -160,6 +166,55 @@ export function useAppData() {
     }));
   }, []);
 
+  const addShoppingItem = useCallback((taskId, name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setState((prev) => {
+      const tasks = prev.tasks.map((t) =>
+        t.id === taskId
+          ? { ...t, items: [...(t.items || []), { id: makeId(), name: trimmed, done: false }] }
+          : t
+      );
+
+      const key = trimmed.toLowerCase();
+      const existing = prev.shoppingHistory.find((h) => h.name.toLowerCase() === key);
+      const shoppingHistory = existing
+        ? prev.shoppingHistory.map((h) =>
+            h.name.toLowerCase() === key
+              ? { ...h, count: h.count + 1, lastUsed: Date.now() }
+              : h
+          )
+        : [...prev.shoppingHistory, { name: trimmed, count: 1, lastUsed: Date.now() }];
+
+      return { ...prev, tasks, shoppingHistory };
+    });
+  }, []);
+
+  const toggleShoppingItem = useCallback((taskId, itemId) => {
+    setState((prev) => ({
+      ...prev,
+      tasks: prev.tasks.map((t) =>
+        t.id === taskId
+          ? {
+              ...t,
+              items: (t.items || []).map((i) =>
+                i.id === itemId ? { ...i, done: !i.done } : i
+              ),
+            }
+          : t
+      ),
+    }));
+  }, []);
+
+  const removeShoppingItem = useCallback((taskId, itemId) => {
+    setState((prev) => ({
+      ...prev,
+      tasks: prev.tasks.map((t) =>
+        t.id === taskId ? { ...t, items: (t.items || []).filter((i) => i.id !== itemId) } : t
+      ),
+    }));
+  }, []);
+
   const updateSettings = useCallback((patch) => {
     setState((prev) => ({
       ...prev,
@@ -177,6 +232,7 @@ export function useAppData() {
       tasks: Array.isArray(data.tasks) ? data.tasks : [],
       transactions: Array.isArray(data.transactions) ? data.transactions : [],
       importedGmailIds: Array.isArray(data.importedGmailIds) ? data.importedGmailIds : [],
+      shoppingHistory: Array.isArray(data.shoppingHistory) ? data.shoppingHistory : [],
     });
   }, []);
 
@@ -192,11 +248,15 @@ export function useAppData() {
     tasks: state.tasks,
     transactions: state.transactions,
     importedGmailIds: state.importedGmailIds,
+    shoppingHistory: state.shoppingHistory,
     addTask,
     toggleTask,
     deleteTask,
     addTransaction,
     deleteTransaction,
+    addShoppingItem,
+    toggleShoppingItem,
+    removeShoppingItem,
     updateSettings,
     resetAll,
     importData,

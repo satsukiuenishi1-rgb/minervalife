@@ -55,6 +55,10 @@ export default function App() {
             settings={data.settings}
             importedGmailIds={data.importedGmailIds}
             markGmailIdsImported={data.markGmailIdsImported}
+            shoppingHistory={data.shoppingHistory}
+            addShoppingItem={data.addShoppingItem}
+            toggleShoppingItem={data.toggleShoppingItem}
+            removeShoppingItem={data.removeShoppingItem}
           />
         )}
         {tab === "finance" && (
