@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ClipboardPaste, Plus, Trash2, X } from "lucide-react";
+import { ClipboardPaste, ExternalLink, Plus, Trash2, X } from "lucide-react";
 import Card from "../components/Card";
 import EmptyState from "../components/EmptyState";
 import { formatMoney, friendlyDate, isWithin, todayISO, weekRangeISO } from "../lib/format";
@@ -119,6 +119,15 @@ export default function Finance({ transactions, settings, addTransaction, delete
             Gemini・ChatGPT・Claudeなどでレシート画像を読み取ってもらい、1行ずつ「日付,
             金額, カテゴリ, メモ」の形式で出力してもらったテキストを貼り付けてください。収入は金額の先頭に「+」をつけてください。
           </p>
+          <a
+            href="https://gemini.google.com/app?hl=ja"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-[var(--color-gold-soft)] underline decoration-[var(--color-gold-soft)]/40 underline-offset-2"
+          >
+            <ExternalLink size={12} />
+            Geminiでレシートを読み取る
+          </a>
           <textarea
             value={importText}
             onChange={(e) => {
