@@ -1,14 +1,18 @@
 import { useMemo, useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { ClipboardPaste, Plus, Trash2, X } from "lucide-react";
 import Card from "../components/Card";
 import EmptyState from "../components/EmptyState";
 import { formatMoney, friendlyDate, isWithin, todayISO, weekRangeISO } from "../lib/format";
+import { parseTransactionLines } from "../lib/importParser";
 
 const EXPENSE_CATEGORIES = ["食費", "寮費・家賃", "交通費", "日用品", "通信費", "娯楽", "その他"];
 const INCOME_CATEGORIES = ["仕送り", "奨学金", "アルバイト", "その他"];
 
 export default function Finance({ transactions, settings, addTransaction, deleteTransaction }) {
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importPreview, setImportPreview] = useState(null);
   const [type, setType] = useState("expense");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState(EXPENSE_CATEGORIES[0]);
@@ -63,20 +67,126 @@ export default function Finance({ transactions, settings, addTransaction, delete
     setShowForm(false);
   }
 
+  function handlePreviewImport() {
+    const { results, errors } = parseTransactionLines(importText);
+    setImportPreview({ results, errors });
+  }
+
+  function handleConfirmImport() {
+    if (!importPreview) return;
+    for (const r of importPreview.results) {
+      addTransaction(r);
+    }
+    setImportText("");
+    setImportPreview(null);
+    setShowImport(false);
+  }
+
   return (
     <div className="space-y-5 px-5 pb-6 pt-5 sm:px-8">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h2 className="font-[family-name:var(--font-display)] text-[18px] text-[var(--color-parchment)]">
           家計
         </h2>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="flex items-center gap-1.5 rounded-full bg-[var(--color-gold)] px-3.5 py-1.5 text-[13px] font-medium text-[var(--color-ink)]"
-        >
-          {showForm ? <X size={15} /> : <Plus size={15} />}
-          {showForm ? "閉じる" : "記録を追加"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              setShowImport((v) => !v);
+              setShowForm(false);
+            }}
+            className="flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-3 py-1.5 text-[13px] text-[var(--color-gold-soft)]"
+          >
+            <ClipboardPaste size={14} />
+            取り込む
+          </button>
+          <button
+            onClick={() => {
+              setShowForm((v) => !v);
+              setShowImport(false);
+            }}
+            className="flex items-center gap-1.5 rounded-full bg-[var(--color-gold)] px-3.5 py-1.5 text-[13px] font-medium text-[var(--color-ink)]"
+          >
+            {showForm ? <X size={15} /> : <Plus size={15} />}
+            {showForm ? "閉じる" : "記録を追加"}
+          </button>
+        </div>
       </div>
+
+      {showImport && (
+        <Card className="p-4">
+          <p className="text-[13px] text-[var(--color-parchment-dim)]">テキストから取り込む</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-muted-soft)]">
+            Gemini・ChatGPT・Claudeなどでレシート画像を読み取ってもらい、1行ずつ「日付,
+            金額, カテゴリ, メモ」の形式で出力してもらったテキストを貼り付けてください。収入は金額の先頭に「+」をつけてください。
+          </p>
+          <textarea
+            value={importText}
+            onChange={(e) => {
+              setImportText(e.target.value);
+              setImportPreview(null);
+            }}
+            rows={5}
+            placeholder={"2026-08-24, 850, 食費, コンビニ弁当\n2026-08-20, +50000, 仕送り, 8月分"}
+            className="mt-2.5 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 font-[family-name:var(--font-mono)] text-[13px] text-[var(--color-parchment)] placeholder:text-[var(--color-muted-soft)]"
+          />
+
+          {!importPreview ? (
+            <button
+              onClick={handlePreviewImport}
+              disabled={!importText.trim()}
+              className="mt-2.5 w-full rounded-lg bg-[var(--color-gold)] py-2 text-[13px] font-medium text-[var(--color-ink)] disabled:opacity-50"
+            >
+              内容を確認する
+            </button>
+          ) : (
+            <div className="mt-2.5 space-y-2.5">
+              {importPreview.results.length > 0 && (
+                <div className="max-h-48 space-y-1.5 overflow-y-auto rounded-lg border border-[var(--color-border-soft)] p-2.5">
+                  {importPreview.results.map((r, i) => (
+                    <div key={i} className="flex items-center justify-between text-[12px]">
+                      <span className="text-[var(--color-parchment-dim)]">
+                        {friendlyDate(r.date)} ・ {r.category}
+                        {r.note && ` ・ ${r.note}`}
+                      </span>
+                      <span
+                        className={
+                          r.type === "income"
+                            ? "text-[var(--color-sage)]"
+                            : "text-[var(--color-parchment)]"
+                        }
+                      >
+                        {r.type === "income" ? "+" : "-"}
+                        {formatMoney(r.amount, settings.currency)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {importPreview.errors.length > 0 && (
+                <p className="text-[11px] text-[var(--color-coral)]">
+                  {importPreview.errors.length}行を読み取れませんでした(
+                  {importPreview.errors.map((e) => e.line).join(", ")}行目)
+                </p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={handleConfirmImport}
+                  disabled={importPreview.results.length === 0}
+                  className="flex-1 rounded-lg bg-[var(--color-gold)] py-2 text-[13px] font-medium text-[var(--color-ink)] disabled:opacity-50"
+                >
+                  {importPreview.results.length}件を追加する
+                </button>
+                <button
+                  onClick={() => setImportPreview(null)}
+                  className="flex-1 rounded-lg border border-[var(--color-border)] py-2 text-[13px] text-[var(--color-parchment-dim)]"
+                >
+                  修正する
+                </button>
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
 
       {showForm && (
         <Card className="p-4">
