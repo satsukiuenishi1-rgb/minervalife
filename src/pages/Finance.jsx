@@ -20,7 +20,7 @@ export default function Finance({ transactions, settings, addTransaction, delete
   const [note, setNote] = useState("");
   const [date, setDate] = useState(todayISO());
   const [promptCopied, setPromptCopied] = useState(false);
-  const [jpyRate, setJpyRate] = useState(settings.currency === "JPY" ? 1 : null);
+  const [jpyRate, setJpyRate] = useState(settings.currency === "JPY" ? 1 : undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,9 +28,9 @@ export default function Finance({ transactions, settings, addTransaction, delete
       setJpyRate(1);
       return;
     }
-    setJpyRate(null);
+    setJpyRate(undefined); // undefined = loading
     getRateToJPY(settings.currency).then((rate) => {
-      if (!cancelled) setJpyRate(rate);
+      if (!cancelled) setJpyRate(rate); // null = failed, number = success
     });
     return () => {
       cancelled = true;
@@ -356,7 +356,10 @@ export default function Finance({ transactions, settings, addTransaction, delete
           </p>
           {settings.currency !== "JPY" && (
             <p className="mt-0.5 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-muted-soft)]">
-              {jpyRate ? `≈ ¥${Math.round(expense * jpyRate).toLocaleString("ja-JP")}` : "換算中..."}
+              {jpyRate === undefined && "換算中..."}
+              {jpyRate === null && "換算できませんでした"}
+              {typeof jpyRate === "number" &&
+                `≈ ¥${Math.round(expense * jpyRate).toLocaleString("ja-JP")}`}
             </p>
           )}
         </Card>

@@ -34,12 +34,12 @@ export async function getRateToJPY(currencyCode) {
 
   try {
     const res = await fetch(
-      `https://api.frankfurter.app/latest?from=${encodeURIComponent(currencyCode)}&to=JPY`
+      `https://open.er-api.com/v6/latest/${encodeURIComponent(currencyCode)}`
     );
     if (!res.ok) throw new Error("rate_fetch_failed");
     const data = await res.json();
     const rate = data.rates?.JPY;
-    if (!rate) throw new Error("no_rate");
+    if (data.result !== "success" || !rate) throw new Error("no_rate");
 
     cache[currencyCode] = { rate, fetchedAt: Date.now() };
     writeCache(cache);
