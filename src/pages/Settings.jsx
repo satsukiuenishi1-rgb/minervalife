@@ -1,11 +1,13 @@
 import { useRef, useState } from "react";
-import { Download, Upload } from "lucide-react";
+import { Download, Mail, Upload } from "lucide-react";
 import Card from "../components/Card";
 import { CURRENCIES } from "../lib/format";
+import { clearGmailToken, getGmailToken } from "../lib/storage";
 
 export default function Settings({ settings, updateSettings, resetAll, importData, rawState }) {
   const fileInputRef = useRef(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [gmailConnected, setGmailConnected] = useState(Boolean(getGmailToken()));
 
   function handleExport() {
     const blob = new Blob([JSON.stringify(rawState, null, 2)], { type: "application/json" });
@@ -86,6 +88,49 @@ export default function Settings({ settings, updateSettings, resetAll, importDat
             onChange={(e) => updateSettings({ term: e.target.value })}
             placeholder="例: Term 3"
             className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 text-[14px] text-[var(--color-parchment)] placeholder:text-[var(--color-muted-soft)]"
+          />
+        </div>
+      </Card>
+
+      <Card className="space-y-3 p-4">
+        <p className="flex items-center gap-1.5 text-[13px] text-[var(--color-parchment-dim)]">
+          <Mail size={14} /> メール連携(Gmail)
+        </p>
+        <p className="text-[11px] leading-relaxed text-[var(--color-muted-soft)]">
+          読み取り専用の権限でGmailに接続し、寮や学校からの予定メールを検知します。メールの内容はこの端末とVercelの処理中のみ扱われ、保存されません。
+        </p>
+
+        {gmailConnected ? (
+          <div className="flex items-center justify-between">
+            <span className="text-[12px] text-[var(--color-sage)]">連携中</span>
+            <button
+              onClick={() => {
+                clearGmailToken();
+                setGmailConnected(false);
+              }}
+              className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-[12px] text-[var(--color-parchment-dim)]"
+            >
+              連携を解除
+            </button>
+          </div>
+        ) : (
+          <a
+            href="/api/auth/google"
+            className="block w-full rounded-lg bg-[var(--color-gold)] py-2 text-center text-[13px] font-medium text-[var(--color-ink)]"
+          >
+            Gmailと連携する
+          </a>
+        )}
+
+        <div>
+          <label className="mb-1 block text-[12px] text-[var(--color-muted)]">
+            検知キーワード(カンマ区切り)
+          </label>
+          <textarea
+            value={settings.gmailKeywords}
+            onChange={(e) => updateSettings({ gmailKeywords: e.target.value })}
+            rows={3}
+            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 text-[13px] text-[var(--color-parchment)]"
           />
         </div>
       </Card>

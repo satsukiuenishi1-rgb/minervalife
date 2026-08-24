@@ -2,9 +2,18 @@ import { useMemo, useState } from "react";
 import { Check, Circle, Plus, Trash2, X } from "lucide-react";
 import Card from "../components/Card";
 import EmptyState from "../components/EmptyState";
+import GmailSync from "../components/GmailSync";
 import { friendlyDate, todayISO } from "../lib/format";
 
-export default function Schedule({ tasks, addTask, toggleTask, deleteTask }) {
+export default function Schedule({
+  tasks,
+  addTask,
+  toggleTask,
+  deleteTask,
+  settings,
+  importedGmailIds,
+  markGmailIdsImported,
+}) {
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(todayISO());
@@ -46,6 +55,13 @@ export default function Schedule({ tasks, addTask, toggleTask, deleteTask }) {
           {showForm ? "閉じる" : "予定を追加"}
         </button>
       </div>
+
+      <GmailSync
+        settings={settings}
+        addTask={addTask}
+        importedGmailIds={importedGmailIds}
+        markGmailIdsImported={markGmailIdsImported}
+      />
 
       {showForm && (
         <Card className="p-4">
