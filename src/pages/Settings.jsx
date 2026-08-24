@@ -1,13 +1,52 @@
 import { useRef, useState } from "react";
-import { Download, Mail, Upload } from "lucide-react";
+import { Check, Copy, Download, Mail, RefreshCw, Smartphone, Upload } from "lucide-react";
 import Card from "../components/Card";
 import { CURRENCIES } from "../lib/format";
 import { clearGmailToken, getGmailToken } from "../lib/storage";
+import { clearSyncCodeStorage, generateSyncCode, setSyncCodeStorage } from "../lib/sync";
 
-export default function Settings({ settings, updateSettings, resetAll, importData, rawState }) {
+export default function Settings({
+  settings,
+  updateSettings,
+  resetAll,
+  importData,
+  rawState,
+  syncCode,
+  setSyncCode,
+  syncStatus,
+}) {
   const fileInputRef = useRef(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [gmailConnected, setGmailConnected] = useState(Boolean(getGmailToken()));
+  const [codeInput, setCodeInput] = useState("");
+  const [codeCopied, setCodeCopied] = useState(false);
+
+  function handleStartSync() {
+    const code = generateSyncCode();
+    setSyncCodeStorage(code);
+    setSyncCode(code);
+  }
+
+  function handleLinkCode(e) {
+    e.preventDefault();
+    const code = codeInput.trim().toUpperCase();
+    if (!code) return;
+    setSyncCodeStorage(code);
+    setSyncCode(code);
+    setCodeInput("");
+  }
+
+  function handleUnlink() {
+    clearSyncCodeStorage();
+    setSyncCode("");
+  }
+
+  function handleCopyCode() {
+    navigator.clipboard.writeText(syncCode).then(() => {
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    });
+  }
 
   function handleExport() {
     const blob = new Blob([JSON.stringify(rawState, null, 2)], { type: "application/json" });
@@ -136,9 +175,74 @@ export default function Settings({ settings, updateSettings, resetAll, importDat
       </Card>
 
       <Card className="space-y-3 p-4">
+        <p className="flex items-center gap-1.5 text-[13px] text-[var(--color-parchment-dim)]">
+          <Smartphone size={14} /> デバイス間で同期
+        </p>
+        <p className="text-[11px] leading-relaxed text-[var(--color-muted-soft)]">
+          同じコードを他の端末(PC/スマホ)で入力すると、予定・家計のデータが自動で同期されます。ログインは不要です。
+        </p>
+
+        {syncCode ? (
+          <>
+            <div className="flex items-center justify-between rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2">
+              <span className="font-[family-name:var(--font-mono)] text-[16px] tracking-[0.15em] text-[var(--color-gold-soft)]">
+                {syncCode}
+              </span>
+              <button
+                onClick={handleCopyCode}
+                aria-label="コードをコピー"
+                className="flex items-center gap-1 rounded-md border border-[var(--color-border)] px-2 py-1 text-[11px] text-[var(--color-parchment-dim)]"
+              >
+                {codeCopied ? <Check size={12} /> : <Copy size={12} />}
+                {codeCopied ? "コピー済み" : "コピー"}
+              </button>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-[var(--color-muted-soft)]">
+              <span className="flex items-center gap-1">
+                <RefreshCw
+                  size={11}
+                  className={syncStatus === "syncing" ? "animate-spin" : ""}
+                />
+                {syncStatus === "syncing" && "同期中..."}
+                {syncStatus === "synced" && "同期済み"}
+                {syncStatus === "error" && "同期エラー(電波状況を確認してください)"}
+                {syncStatus === "idle" && "待機中"}
+              </span>
+              <button onClick={handleUnlink} className="text-[var(--color-coral-soft)]">
+                この端末の同期を解除
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="space-y-2.5">
+            <button
+              onClick={handleStartSync}
+              className="w-full rounded-lg bg-[var(--color-gold)] py-2 text-[13px] font-medium text-[var(--color-ink)]"
+            >
+              この端末で同期コードを作る
+            </button>
+            <form onSubmit={handleLinkCode} className="flex gap-2">
+              <input
+                value={codeInput}
+                onChange={(e) => setCodeInput(e.target.value)}
+                placeholder="他の端末のコードを入力"
+                className="min-w-0 flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 font-[family-name:var(--font-mono)] text-[13px] uppercase tracking-[0.1em] text-[var(--color-parchment)] placeholder:normal-case placeholder:tracking-normal placeholder:text-[var(--color-muted-soft)]"
+              />
+              <button
+                type="submit"
+                className="shrink-0 rounded-lg border border-[var(--color-border)] px-3 text-[13px] text-[var(--color-gold-soft)]"
+              >
+                連携
+              </button>
+            </form>
+          </div>
+        )}
+      </Card>
+
+      <Card className="space-y-3 p-4">
         <p className="text-[13px] text-[var(--color-parchment-dim)]">データの管理</p>
         <p className="text-[11px] leading-relaxed text-[var(--color-muted-soft)]">
-          データはこの端末のブラウザ内にのみ保存されます。機種変更や別の端末で使う前に、バックアップの書き出しをおすすめします。
+          「デバイス間で同期」を設定していない場合、データはこの端末のブラウザ内にのみ保存されます。念のため、時々バックアップの書き出しもおすすめします。
         </p>
         <div className="flex gap-2">
           <button

@@ -6,11 +6,14 @@ import Schedule from "./pages/Schedule";
 import Finance from "./pages/Finance";
 import Settings from "./pages/Settings";
 import { useAppData, setGmailToken } from "./lib/storage";
+import { getSyncCode, useCloudSync } from "./lib/sync";
 
 export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [gmailNotice, setGmailNotice] = useState("");
+  const [syncCode, setSyncCodeState] = useState(getSyncCode());
   const data = useAppData();
+  const syncStatus = useCloudSync(syncCode, data.rawState, data.importData);
 
   useEffect(() => {
     if (!window.location.hash) return;
@@ -76,6 +79,9 @@ export default function App() {
             resetAll={data.resetAll}
             importData={data.importData}
             rawState={data.rawState}
+            syncCode={syncCode}
+            setSyncCode={setSyncCodeState}
+            syncStatus={syncStatus}
           />
         )}
       </main>
