@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
-import { ClipboardPaste, ExternalLink, Plus, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ClipboardPaste, Copy, Check, ExternalLink, Plus, Trash2, X } from "lucide-react";
 import Card from "../components/Card";
 import EmptyState from "../components/EmptyState";
 import { formatMoney, friendlyDate, isWithin, todayISO, weekRangeISO } from "../lib/format";
 import { parseTransactionLines } from "../lib/importParser";
+import { getRateToJPY } from "../lib/exchangeRate";
 
 const EXPENSE_CATEGORIES = ["食費", "寮費・家賃", "交通費", "日用品", "通信費", "娯楽", "その他"];
 const INCOME_CATEGORIES = ["仕送り", "奨学金", "アルバイト", "その他"];
@@ -18,6 +19,33 @@ export default function Finance({ transactions, settings, addTransaction, delete
   const [category, setCategory] = useState(EXPENSE_CATEGORIES[0]);
   const [note, setNote] = useState("");
   const [date, setDate] = useState(todayISO());
+  const [promptCopied, setPromptCopied] = useState(false);
+  const [jpyRate, setJpyRate] = useState(settings.currency === "JPY" ? 1 : null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (settings.currency === "JPY") {
+      setJpyRate(1);
+      return;
+    }
+    setJpyRate(null);
+    getRateToJPY(settings.currency).then((rate) => {
+      if (!cancelled) setJpyRate(rate);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.currency]);
+
+  const GEMINI_PROMPT =
+    "日付(YYYY-MM-DD), 金額(数字のみ), カテゴリ(食費/日用品/交通費/通信費/娯楽/その他), メモ(店名や内容を簡潔に)";
+
+  function handleCopyPrompt() {
+    navigator.clipboard.writeText(GEMINI_PROMPT).then(() => {
+      setPromptCopied(true);
+      setTimeout(() => setPromptCopied(false), 2000);
+    });
+  }
 
   const { start, end } = weekRangeISO(0);
 
@@ -128,6 +156,22 @@ export default function Finance({ transactions, settings, addTransaction, delete
             <ExternalLink size={12} />
             Geminiでレシートを読み取る
           </a>
+
+          <div className="mt-2.5 rounded-lg border border-[var(--color-border-soft)] bg-[var(--color-surface-raised)] px-3 py-2">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-[11px] leading-relaxed text-[var(--color-muted)]">
+                {GEMINI_PROMPT}
+              </p>
+              <button
+                onClick={handleCopyPrompt}
+                aria-label="プロンプトをコピー"
+                className="flex shrink-0 items-center gap-1 rounded-md border border-[var(--color-border)] px-2 py-1 text-[11px] text-[var(--color-gold-soft)]"
+              >
+                {promptCopied ? <Check size={12} /> : <Copy size={12} />}
+                {promptCopied ? "コピー済み" : "コピー"}
+              </button>
+            </div>
+          </div>
           <textarea
             value={importText}
             onChange={(e) => {
@@ -310,6 +354,11 @@ export default function Finance({ transactions, settings, addTransaction, delete
           <p className="mt-1 font-[family-name:var(--font-mono)] text-[14px] text-[var(--color-coral)]">
             {formatMoney(expense, settings.currency)}
           </p>
+          {settings.currency !== "JPY" && (
+            <p className="mt-0.5 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-muted-soft)]">
+              {jpyRate ? `≈ ¥${Math.round(expense * jpyRate).toLocaleString("ja-JP")}` : "換算中..."}
+            </p>
+          )}
         </Card>
         <Card className="p-3 text-center">
           <p className="text-[11px] text-[var(--color-muted)]">収支</p>
